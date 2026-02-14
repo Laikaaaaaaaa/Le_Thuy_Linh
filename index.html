@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+	<title>Valentine For You</title>
+	<link rel="preconnect" href="https://fonts.googleapis.com">
+	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+	<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,500;0,600;0,700;1,500;1,600;1,700&display=swap" rel="stylesheet">
+	<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+	<div class="bg-gradient"></div>
+	<div class="bg-glow glow-1"></div>
+	<div class="bg-glow glow-2"></div>
+	<div class="bg-glow glow-3"></div>
+
+	<div id="sparkles-layer" class="decor-layer"></div>
+	<div id="meteors-layer" class="decor-layer"></div>
+	<div id="trail-layer" class="decor-layer"></div>
+	<div id="hearts-layer-back" class="decor-layer"></div>
+	<div id="hearts-layer-front" class="decor-layer"></div>
+	<div id="click-burst-layer" class="decor-layer click-burst-layer"></div>
+	<div id="fireworks-layer" class="decor-layer fireworks-layer"></div>
+	<div id="cursor-glow" class="cursor-glow"></div>
+
+	<audio id="bg-music" preload="auto"
+		data-tracks="music/i_need_your_love.mp3|music/the_gioi_trong_em.mp3"></audio>
+
+	<button id="music-toggle" class="music-toggle" aria-label="Bật hoặc tắt nhạc nền">
+		<span class="music-icon">♫</span>
+		<span class="music-text">Nhạc: Off</span>
+	</button>
+
+	<main id="page">
+		<section id="intro" class="section intro full-screen reveal">
+			<div class="section-inner">
+				<p class="eyebrow fade-up">Valentine's Day • 14/02/2026</p>
+				<h1 class="hero-title" data-speed="0.15">Gửi người anh iuu nhất trên đời này</h1>
+				<p class="hero-sub typing" data-text="Mỗi nhịp tim anh đều nhắc tên em, dịu dàng như ánh sáng giữa đêm yên bình."></p>
+				<a href="#memory" class="scroll-down">Cuộn xuống để xem nhaa</a>
+			</div>
+		</section>
+
+		<section id="memory" class="section memory reveal">
+			<div class="section-inner">
+				<h2 class="section-title split-chars">Kỷ niệm của chúng ta</h2>
+				<ol id="memory-texts" hidden>
+					<li>Đây là ai dạaaa? Vợ tui đóaa. Người mà chỉ cần xuất hiện là mọi mệt mỏi trong anh biến mất lun, người khiến những ngày bình thường nhất của anh cũng trở nên đáng nhớ lắmm, và là lý do để anh luôn muốn cố gắng hơn mỗi ngày. Nói đơn giản thôi: anh yêu dợ anh nhiều lắm - Lê Thùy Linh.</li>
+					<li>Những lần gọi call nói chuyện có khi tới sáng, không cần nói điều gì to tát, chỉ cần nghe giọng vợ iuu là đủ lắm đối với anh ròiii</li>
+					<li>Những bức ảnh mình chụp chung khi có nhau nèee, mỗi tấm là một kỷ niệm nhỏ được giữ lại, là những khoảnh khắc rất bình thường thôi nhưng sau này nhìn lại chắc chắn sẽ mỉm cười, vì trong đó có tụi mình.</li>
+					<li>Còn đây là ảnh lần đầu anh ra chỗ em gặp em, lần đầu được nắm tay em, chắc khoảnh khắc này anh nhớ suốt đời luôn áaa=)))</li>
+					<li>Hôm đầu tiên anh ra chỗ em nè, trên chuyến bay VJ240. Lúc nhìn trên bản đồ Jagat thấy xe em càng lúc càng tới gần để đón anh, tim anh đập loạn lên luôn... Anh còn nhớ rõ mấy lúc ngồi ở sảnh chờ lên máy bay, cảm giác vừa mong, vừa sợ, vừa lo... sợ nhiều cái lắm, nhưng cúi cùng ra chỗ em rồi anh lại ghiền ra thêm.</li>
+					<li>Quà em tăng anh nèeee, iu vợ nhất trên đờiii, anh muốn giữ nó tới già cơ, mất món nào tui khóc cho em mua lại, hihi.</li>
+					<li>Nhẫn cặp của tụi mình nè, hihi=)))), anh thấy nhẫn em đeo hiện tại không được ưng ý lắm, nên có gì tương lai anh sẽ trao em 1 chiếc nhẫn đính viên kim cương 1 tỷ đô, hahahahahahahahahaha.</li>
+					<li>Đây là đơn đăng kí kết hôn của tụi mình nha, em kí luôn rồi nha, hiện tại và sau này cấm cục cưng lấy đơn ly hôn raaa, anh bùn lớm ớ=<<</li>
+					<li>Vợ và anh lúc nhỏ nà, có tướng phu thê ghê lun ó nhooo.</li>
+					<li>Cái cây vợ tặng anh nè, anh muốn giữ nó tới giàaa lun cơ, muốn nó mọc tay mọc chân để mốt nó chăm lo lại cho tụi mình, hihi, anh cũng sợ anh khong biết chăm cây tốt làm nó chết lắm, nhưng anh sẽ cố ạa</li>
+					<li>Nội dung ảnh 11</li>
+					<li>Nội dung ảnh 12</li>
+					<li>Nội dung ảnh 13</li>
+					<li>Nội dung ảnh 14</li>
+					<li>Nội dung ảnh 15</li>
+					<li>Nội dung ảnh 16</li>
+					<li>Nội dung ảnh 17</li>
+					<li>Nội dung ảnh 18</li>
+					<li>Nội dung ảnh 19</li>
+					<li>Nội dung ảnh 20</li>
+				</ol>
+				<div class="memory-timeline" id="memory-timeline"></div>
+			</div>
+		</section>
+
+		<section id="letter" class="section letter reveal">
+			<div class="section-inner">
+				<h2 class="section-title split-chars">Bức thư online gửi em</h2>
+				<div class="letter-card breathing" id="letter-card">
+					<p class="letter-line">Vợ oiii,</p>
+					<p class="letter-line">Có nhiều lúc anh nghĩ, sao mình gặp nhau và quen nhau được hay thật, từ một con chó trong game đến một mối tình ngoài đời thực, kiểu vi diệu sao ớ. Nhưng mà thoi kệ, tại vì anh biết đó là do mình có duyên với nhau òi. Chỉ thiếu sau này có thêm phận vợ chồng thoii, nên là sau này em lấy anh làm chồng em nhaaa.</p>
+					<p class="letter-line">Dù anh thì chẳng có gì cao siêu đến mức mà cho em được tất cả những thứ tốt nhất trên thế gian này, nhưng anh sẽ cố cho em những thứ tốt nhất mà anh có. Ngày qua ngày quen em, anh càng thấy yêu em, thương em nhiều hơn.</p>
+					<p class="letter-line">Nhưng đôi lúc anh cũng ghécc vợ thật sự, hay bỏ bữa, ăn uống linh tinh, ghéc thật đấy không đùa, anh biết em cũng kén ăn nhiều thứ lắm, nhưng để tốt cho sức khỏe thì em cũng phải ăn cho đủ bữa chứu, mà ăn là phải ăn đồ tốt nghe chưa!!?!?! Hứa rùi mà chả làm được, bùn thật.</p>
+					<p class="letter-line">Suy cho cùng thì anh rất iuu emm, iu nhiều lắm luôn ấy, không phải nhiều em đâu hihi. Nhiều khi anh cũng làm em buồn, buồn rất nhiều là đằng khác, mỗi lúc vậy anh cũng buồn, anh thích dáng vẻ em lúc vui vẻ vô tư cơ, kiểu nó hồn nhiên ấy, dễ thương lắmmm.</p>
+					<p class="letter-line">Nên nếu có lúc anh vụng về, nói chưa khéo, làm chưa đúng, thì cho anh xin một chút kiên nhẫn từ em nha. Anh vẫn đang học cách yêu em cho tốt hơn mỗi ngày, học cách trở thành người mà em có thể yên tâm nắm tay đi thật xa. Chỉ cần em còn ở đó, còn chọn anh, thì dù chậm một chút anh cũng sẽ đi tới cùng. Anh thương em không phải vì điều gì lớn lao, mà vì chính em, rất thật và rất riêng.</p>
+					<p class="letter-line signature">Thương em nhiều lắm, vợ của anhh</p>
+				</div>
+			</div>
+		</section>
+
+		<section id="future" class="section future reveal">
+			<div class="section-inner">
+				<h2 class="section-title split-chars">Tương lai của chúng ta</h2>
+				<ul class="future-list">
+					<li class="future-item reveal-item">
+						<label>
+							<input type="checkbox" class="future-check" />
+							<span class="custom-check"></span>
+							<span class="future-text">Cùng nhau ở chung 1 ngôi nhà, hoặc là biệt thự siêu to khổng lồ</span>
+						</label>
+					</li>
+					<li class="future-item reveal-item">
+						<label>
+							<input type="checkbox" class="future-check" />
+							<span class="custom-check"></span>
+							<span class="future-text">Nuôi một bầy thú cưng</span>
+						</label>
+					</li>
+					<li class="future-item reveal-item">
+						<label>
+							<input type="checkbox" class="future-check" />
+							<span class="custom-check"></span>
+							<span class="future-text">Cùng đi phượt xuyên đất nước, hoặc là xuyên vũ trụ lunn</span>
+						</label>
+					</li>
+					<li class="future-item reveal-item">
+						<label>
+							<input type="checkbox" class="future-check" />
+							<span class="custom-check"></span>
+							<span class="future-text">Anh mở trường tư, còn em làm hiệu phó, anh làm hiệu trưởng nhaa</span>
+						</label>
+					</li>
+					<li class="future-item reveal-item">
+						<label>
+							<input type="checkbox" class="future-check" />
+							<span class="custom-check"></span>
+							<span class="future-text">Yêu nhau 100 năm, 1000 năm, vô thời hạn</span>
+						</label>
+					</li>
+				</ul>
+			</div>
+		</section>
+
+		<section id="promise" class="section promise reveal">
+			<div class="section-inner">
+				<h2 class="section-title split-chars">Một điều anh muốn hỏi em</h2>
+				<button id="love-btn" class="love-btn">
+					Em có đồng ý tiếp tục yêu anh không?
+				</button>
+				<p id="final-message" class="final-message">Anh yêu em nhiều lắm ❤️</p>
+			</div>
+		</section>
+	</main>
+
+	<footer class="footer reveal">
+		<p>Made with love, only for you</p>
+	</footer>
+
+	<!-- Lightbox -->
+	<div id="lightbox-overlay" class="lightbox-overlay">
+		<div class="lightbox-inner">
+			<button id="lightbox-close" class="lightbox-close" aria-label="Đóng">✕</button>
+			<button id="lightbox-prev" class="lightbox-arrow prev" aria-label="Trước">❮</button>
+			<div id="lightbox-content" class="lightbox-content"></div>
+			<button id="lightbox-next" class="lightbox-arrow next" aria-label="Sau">❯</button>
+			<span id="lightbox-counter" class="lightbox-counter">1 / 1</span>
+		</div>
+	</div>
+
+	<script src="script.js"></script>
+</body>
+</html>
