@@ -429,7 +429,16 @@ function prepareLetterTyping() {
   });
 }
 
-function typeLineFast(line, text, speed = 11, chunkSize = 2) {
+function revealLetterInstant() {
+  letterLines.forEach((line) => {
+    line.textContent = line.dataset.fullText || "";
+    line.style.opacity = "1";
+    line.style.transform = "translateY(0)";
+    line.classList.remove("typing-cursor-line");
+  });
+}
+
+function typeLineFast(line, text, speedMs = 24, chunkSize = 6) {
   return new Promise((resolve) => {
     if (!text) {
       resolve();
@@ -439,18 +448,26 @@ function typeLineFast(line, text, speed = 11, chunkSize = 2) {
     const chars = [...text];
     let pointer = 0;
     line.classList.add("typing-cursor-line");
+    let lastTick = performance.now();
 
-    const timer = setInterval(() => {
-      const next = chars.slice(pointer, pointer + chunkSize).join("");
-      line.textContent += next;
-      pointer += chunkSize;
+    const step = (now) => {
+      if (now - lastTick >= speedMs) {
+        const next = chars.slice(pointer, pointer + chunkSize).join("");
+        line.textContent += next;
+        pointer += chunkSize;
+        lastTick = now;
+      }
 
       if (pointer >= chars.length) {
-        clearInterval(timer);
         line.classList.remove("typing-cursor-line");
         resolve();
+        return;
       }
-    }, speed);
+
+      window.requestAnimationFrame(step);
+    };
+
+    window.requestAnimationFrame(step);
   });
 }
 
@@ -458,8 +475,20 @@ async function runLetterTypingFast() {
   if (letterTypingStarted || !letterLines.length) return;
   letterTypingStarted = true;
 
+  const totalChars = Array.from(letterLines).reduce(
+    (sum, line) => sum + (line.dataset.fullText || "").length,
+    0
+  );
+  const lowMode = shouldReduceEffects() || totalChars > 2000;
+
   if (letterCard) {
     letterCard.classList.add("typing-active");
+  }
+
+  if (lowMode) {
+    revealLetterInstant();
+    if (letterCard) letterCard.classList.remove("typing-active");
+    return;
   }
 
   for (let index = 0; index < letterLines.length; index += 1) {
@@ -467,8 +496,8 @@ async function runLetterTypingFast() {
     const text = line.dataset.fullText || "";
     line.style.opacity = "1";
     line.style.transform = "translateY(0)";
-    await typeLineFast(line, text, 11, 2);
-    await new Promise((resolve) => setTimeout(resolve, 48));
+    await typeLineFast(line, text, 24, 6);
+    await new Promise((resolve) => setTimeout(resolve, 18));
   }
 
   if (letterCard) {
