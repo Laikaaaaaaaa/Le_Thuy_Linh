@@ -29,6 +29,16 @@ let autoplayRetryTimer = null;
 let autoplayRetryCount = 0;
 let letterTypingStarted = false;
 let userPausedMusic = false;
+const mediaCache = new Map();
+let lastGlobalBurstAt = 0;
+let lastLoveClickAt = 0;
+let celebrationRunning = false;
+
+const EFFECT_LIMITS = {
+  clickHearts: 140,
+  fireworks: 180,
+  trailHearts: 80,
+};
 
 const fallbackTracks = (audio?.dataset?.tracks || "")
   .split("|")
@@ -41,6 +51,15 @@ const videoExtensions = ["mp4", "webm", "mov"];
 function on(target, eventName, handler, options) {
   if (!target) return;
   target.addEventListener(eventName, handler, options);
+}
+
+function appendWithLimit(layer, node, limit) {
+  if (!layer) return false;
+  if (layer.childElementCount >= limit) {
+    layer.removeChild(layer.firstElementChild);
+  }
+  layer.appendChild(node);
+  return true;
 }
 
 function getMemoryTextByIndex(index) {
@@ -125,9 +144,9 @@ function buildCollage(mediaList, folderIndex) {
       const vid = document.createElement("video");
       vid.src = item.url;
       vid.muted = true;
-      vid.autoplay = true;
-      vid.loop = true;
-      vid.preload = "metadata";
+      vid.autoplay = false;
+      vid.loop = false;
+      vid.preload = "none";
       vid.playsInline = true;
       vid.className = "gallery-thumb";
       const playIcon = document.createElement("span");
@@ -157,6 +176,27 @@ function buildCollage(mediaList, folderIndex) {
   collage.addEventListener("click", () => openLightbox(mediaList, 0));
 
   return collage;
+}
+
+async function getMediaListCached(folderIndex) {
+  if (mediaCache.has(folderIndex)) {
+    return mediaCache.get(folderIndex);
+  }
+
+  const mediaList = await discoverFolderMedia(folderIndex);
+  mediaCache.set(folderIndex, mediaList);
+  return mediaList;
+}
+
+async function renderTimelineCover(galleryWrap, folderIndex) {
+  if (!galleryWrap || galleryWrap.dataset.loaded === "1") return;
+  galleryWrap.dataset.loaded = "1";
+
+  const mediaList = await getMediaListCached(folderIndex);
+  const coverList = mediaList.slice(0, 3);
+  galleryWrap.innerHTML = "";
+  const collage = buildCollage(mediaList.length > 3 ? [...coverList, ...mediaList.slice(3)] : coverList, folderIndex);
+  galleryWrap.appendChild(collage);
 }
 
 /* ── Lightbox ── */
@@ -258,6 +298,7 @@ function initLightbox() {
 async function buildMemoryTimeline(total = 20) {
   if (!memoryTimeline) return;
   memoryTimeline.innerHTML = "";
+  mediaCache.clear();
 
   const visibleLimit = Math.min(total, 10);
   const rows = [];
@@ -300,12 +341,32 @@ async function buildMemoryTimeline(total = 20) {
     memoryTimeline.appendChild(futureRow);
   }
 
-  for (const { galleryWrap, index } of rows) {
-    const mediaList = await discoverFolderMedia(index);
-    galleryWrap.innerHTML = "";
-    const collage = buildCollage(mediaList, index);
-    galleryWrap.appendChild(collage);
+  if (!("IntersectionObserver" in window)) {
+    for (const { galleryWrap, index } of rows) {
+      await renderTimelineCover(galleryWrap, index);
+    }
+    return;
   }
+
+  const coverObserver = new IntersectionObserver(
+    (entries, observer) => {
+      entries.forEach((entry) => {
+        if (!entry.isIntersecting) return;
+
+        const index = Number(entry.target.dataset.folderIndex || "0");
+        if (!index) return;
+
+        renderTimelineCover(entry.target, index);
+        observer.unobserve(entry.target);
+      });
+    },
+    { threshold: 0.08, rootMargin: "240px 0px" }
+  );
+
+  rows.forEach(({ galleryWrap, index }) => {
+    galleryWrap.dataset.folderIndex = String(index);
+    coverObserver.observe(galleryWrap);
+  });
 }
 
 function splitTextToChars() {
@@ -597,7 +658,7 @@ function initPointerTrail() {
     heart.style.left = `${event.clientX}px`;
     heart.style.top = `${event.clientY}px`;
     heart.style.fontSize = `${Math.random() * 8 + 10}px`;
-    trailLayer.appendChild(heart);
+    appendWithLimit(trailLayer, heart, EFFECT_LIMITS.trailHearts);
     heart.addEventListener("animationend", () => heart.remove());
   });
 }
@@ -625,12 +686,16 @@ function initMemoryTilt() {
 
 function burstHearts(x, y, amount = 18, spread = 140) {
   if (!clickBurstLayer) return;
-  for (let i = 0; i < amount; i += 1) {
+  const available = Math.max(0, EFFECT_LIMITS.clickHearts - clickBurstLayer.childElementCount);
+  if (available <= 0) return;
+  const actualAmount = Math.min(amount, available);
+
+  for (let i = 0; i < actualAmount; i += 1) {
     const piece = document.createElement("span");
     piece.className = "click-heart";
     piece.textContent = "❤";
 
-    const angle = (Math.PI * 2 * i) / amount;
+    const angle = (Math.PI * 2 * i) / actualAmount;
     const radius = Math.random() * spread + 40;
     const tx = Math.cos(angle) * radius;
     const ty = Math.sin(angle) * radius;
@@ -642,7 +707,7 @@ function burstHearts(x, y, amount = 18, spread = 140) {
     piece.style.setProperty("--y", `${ty}px`);
     piece.style.animationDuration = `${Math.random() * 0.45 + 0.8}s`;
 
-    clickBurstLayer.appendChild(piece);
+    appendWithLimit(clickBurstLayer, piece, EFFECT_LIMITS.clickHearts);
     piece.addEventListener("animationend", () => piece.remove());
   }
 }
@@ -653,13 +718,16 @@ function randomRange(min, max) {
 
 function fireworkExplosion(cx, cy, count = 42) {
   if (!fireworksLayer) return;
+  const available = Math.max(0, EFFECT_LIMITS.fireworks - fireworksLayer.childElementCount);
+  if (available <= 0) return;
+  const actualCount = Math.min(count, available);
   const colors = ["#ffd4ea", "#ff7cb9", "#fff2f8", "#ffc2df", "#ff96c6"];
 
-  for (let i = 0; i < count; i += 1) {
+  for (let i = 0; i < actualCount; i += 1) {
     const dot = document.createElement("span");
     dot.className = "firework";
 
-    const angle = (Math.PI * 2 * i) / count + randomRange(-0.08, 0.08);
+    const angle = (Math.PI * 2 * i) / actualCount + randomRange(-0.08, 0.08);
     const dist = randomRange(80, 260);
     const tx = Math.cos(angle) * dist;
     const ty = Math.sin(angle) * dist;
@@ -670,27 +738,44 @@ function fireworkExplosion(cx, cy, count = 42) {
     dot.style.setProperty("--tx", `${tx}px`);
     dot.style.setProperty("--ty", `${ty}px`);
 
-    fireworksLayer.appendChild(dot);
+    appendWithLimit(fireworksLayer, dot, EFFECT_LIMITS.fireworks);
     dot.addEventListener("animationend", () => dot.remove());
   }
 }
 
 function fullScreenCelebration() {
+  if (celebrationRunning) return;
+  celebrationRunning = true;
+
   const width = window.innerWidth;
   const height = window.innerHeight;
+  const lowMode = shouldReduceEffects();
+  const rounds = lowMode ? 3 : 5;
+  const fireworkCount = lowMode ? 18 : 30;
+  const heartCount = lowMode ? 12 : 20;
 
-  for (let i = 0; i < 6; i += 1) {
+  for (let i = 0; i < rounds; i += 1) {
     const x = randomRange(width * 0.1, width * 0.9);
     const y = randomRange(height * 0.15, height * 0.75);
 
-    setTimeout(() => fireworkExplosion(x, y, 50), i * 170);
-    setTimeout(() => burstHearts(x, y, 30, 220), i * 150 + 30);
+    setTimeout(() => fireworkExplosion(x, y, fireworkCount), i * 180);
+    setTimeout(() => burstHearts(x, y, heartCount, 180), i * 160 + 30);
   }
+
+  setTimeout(() => {
+    celebrationRunning = false;
+  }, rounds * 220 + 600);
 }
 
 function handleGlobalClickHearts() {
-  document.addEventListener("pointerdown", (event) => {
+  on(document, "pointerdown", (event) => {
     if (event.target.closest(".music-toggle")) return;
+    if (event.target.closest("#love-btn")) return;
+
+    const now = performance.now();
+    if (now - lastGlobalBurstAt < 120) return;
+    lastGlobalBurstAt = now;
+
     burstHearts(event.clientX, event.clientY, 10, 70);
   });
 }
@@ -897,11 +982,24 @@ async function initMusic() {
 function handleLoveButton() {
   if (!loveButton || !page || !finalMessage) return;
   on(loveButton, "click", () => {
+    const now = performance.now();
+    const clickCooldown = 1400;
+    if (now - lastLoveClickAt < clickCooldown) {
+      burstHearts(
+        loveButton.getBoundingClientRect().left + loveButton.getBoundingClientRect().width / 2,
+        loveButton.getBoundingClientRect().top + loveButton.getBoundingClientRect().height / 2,
+        6,
+        70
+      );
+      return;
+    }
+    lastLoveClickAt = now;
+
     const rect = loveButton.getBoundingClientRect();
     const centerX = rect.left + rect.width / 2;
     const centerY = rect.top + rect.height / 2;
 
-    burstHearts(centerX, centerY, 44, 210);
+    burstHearts(centerX, centerY, shouldReduceEffects() ? 18 : 30, 170);
     fullScreenCelebration();
     page.classList.add("screen-shake");
     finalMessage.classList.add("show");
@@ -913,15 +1011,17 @@ function handleLoveButton() {
 }
 
 function init() {
+  const lowMode = shouldReduceEffects();
+
   forceScrollTopOnReload();
   buildMemoryTimeline(20);
   prepareLetterTyping();
   splitTextToChars();
   runTyping();
-  createSparkles(56);
-  createMeteors(16);
-  createFloatingHearts(heartsBack, 28, 13, 26, false);
-  createFloatingHearts(heartsFront, 22, 10, 20, true);
+  createSparkles(lowMode ? 26 : 44);
+  createMeteors(lowMode ? 7 : 12);
+  createFloatingHearts(heartsBack, lowMode ? 14 : 22, 13, 26, false);
+  createFloatingHearts(heartsFront, lowMode ? 10 : 16, 10, 20, true);
   revealOnScroll();
   handleParallax();
   initCursorGlow();
