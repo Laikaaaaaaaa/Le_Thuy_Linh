@@ -159,36 +159,20 @@ async function fetchDirectoryMedia(basePath) {
   }
 }
 
-function probeImage(url) {
-  return new Promise((resolve) => {
-    const image = new Image();
-    image.onload = () => resolve(true);
-    image.onerror = () => resolve(false);
-    image.src = url;
-  });
-}
+async function probeUrlExists(url) {
+  try {
+    const response = await fetch(url, { method: "HEAD", cache: "no-store" });
+    if (response.ok) return true;
 
-function probeVideo(url) {
-  return new Promise((resolve) => {
-    const video = document.createElement("video");
-    const done = (status) => {
-      video.onloadedmetadata = null;
-      video.oncanplay = null;
-      video.onerror = null;
-      resolve(status);
-    };
+    if (response.status === 405) {
+      const fallback = await fetch(url, { method: "GET", cache: "no-store" });
+      return fallback.ok;
+    }
 
-    video.preload = "metadata";
-    video.onloadedmetadata = () => done(true);
-    video.oncanplay = () => done(true);
-    video.onerror = () => done(false);
-    video.src = url;
-    video.load();
-  });
-}
-
-function probeMedia(url, type) {
-  return type === "video" ? probeVideo(url) : probeImage(url);
+    return false;
+  } catch (error) {
+    return false;
+  }
 }
 
 /* ── Discover all media in a folder (static/images_videos/{n}/) ── */
@@ -208,13 +192,15 @@ async function discoverFolderMedia(folderIndex) {
 
   let fileNum = 1;
   let consecutiveMisses = 0;
+  let activeBasePath = null;
 
-  while (consecutiveMisses < 2) {
-    const probes = basePaths.flatMap((basePath) =>
+  while (consecutiveMisses < 1) {
+    const scanPaths = activeBasePath ? [activeBasePath] : basePaths;
+    const probes = scanPaths.flatMap((basePath) =>
       allExtensions.map((ext) => {
         const url = `${basePath}/${fileNum}.${ext}`;
         const type = videoExtensions.includes(ext) ? "video" : "image";
-        return probeMedia(url, type).then((ok) => (ok ? { url, ext, type } : null));
+        return probeUrlExists(url).then((ok) => (ok ? { url, ext, type, basePath } : null));
       })
     );
 
@@ -223,6 +209,7 @@ async function discoverFolderMedia(folderIndex) {
 
     if (hit) {
       found.push({ url: hit.url, type: hit.type });
+      activeBasePath = hit.basePath;
       consecutiveMisses = 0;
     } else {
       consecutiveMisses += 1;
