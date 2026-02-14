@@ -1,7 +1,7 @@
 const page = document.getElementById("page");
 const audio = document.getElementById("bg-music");
 const musicToggle = document.getElementById("music-toggle");
-const musicText = musicToggle.querySelector(".music-text");
+const musicText = musicToggle?.querySelector(".music-text") || null;
 const sparklesLayer = document.getElementById("sparkles-layer");
 const meteorsLayer = document.getElementById("meteors-layer");
 const trailLayer = document.getElementById("trail-layer");
@@ -30,7 +30,7 @@ let autoplayRetryCount = 0;
 let letterTypingStarted = false;
 let userPausedMusic = false;
 
-const fallbackTracks = (audio.dataset.tracks || "")
+const fallbackTracks = (audio?.dataset?.tracks || "")
   .split("|")
   .map((track) => track.trim())
   .filter(Boolean);
@@ -39,7 +39,12 @@ let playlist = [...fallbackTracks];
 const mediaExtensions = ["jpg", "jpeg", "png", "webp", "gif", "jfif", "bmp", "avif"];
 const videoExtensions = ["mp4", "webm", "mov"];
 const allExtensions = [...mediaExtensions, ...videoExtensions];
-const musicExtensions = ["mp3", "wav", "ogg", "m4a", "aac", "flac", "webm"];
+const MEDIA_BASE_PATH = "static/images_video";
+
+function on(target, eventName, handler, options) {
+  if (!target) return;
+  target.addEventListener(eventName, handler, options);
+}
 
 function getMemoryTextByIndex(index) {
   const text = memoryTextList[index - 1]?.textContent?.trim();
@@ -54,64 +59,6 @@ function getExtensionFromPath(path) {
   return clean.slice(dotIndex + 1).toLowerCase();
 }
 
-function isSupportedMusicFile(path) {
-  return musicExtensions.includes(getExtensionFromPath(path));
-}
-
-function sortFilesByName(items) {
-  return [...items].sort((a, b) =>
-    a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: "base" })
-  );
-}
-
-async function discoverMusicTracks() {
-  const basePaths = ["music", "static/music"];
-
-  for (const basePath of basePaths) {
-    try {
-      const response = await fetch(`${basePath}/`, { cache: "no-store" });
-      if (!response.ok) continue;
-
-      const html = await response.text();
-      const parser = new DOMParser();
-      const doc = parser.parseFromString(html, "text/html");
-      const links = Array.from(doc.querySelectorAll("a[href]"));
-
-      const tracks = links
-        .map((anchor) => anchor.getAttribute("href") || "")
-        .map((href) => decodeURIComponent(href.trim()))
-        .filter((href) => href && href !== "../" && !href.endsWith("/"))
-        .map((href) => {
-          const fileName = href.split("/").pop() || href;
-          if (!isSupportedMusicFile(fileName)) return null;
-
-          const normalizedHref = href.startsWith("./") ? href.slice(2) : href;
-          let url;
-
-          if (/^https?:\/\//i.test(normalizedHref) || normalizedHref.startsWith("/")) {
-            url = normalizedHref;
-          } else if (normalizedHref.startsWith(`${basePath}/`)) {
-            url = normalizedHref;
-          } else {
-            url = `${basePath}/${normalizedHref}`;
-          }
-
-          return { name: fileName, url };
-        })
-        .filter(Boolean);
-
-      if (tracks.length) {
-        const sortedTracks = sortFilesByName(tracks);
-        return sortedTracks.map((track) => track.url);
-      }
-    } catch (error) {
-      continue;
-    }
-  }
-
-  return [...fallbackTracks];
-}
-
 function isSupportedMediaFile(path) {
   const ext = getExtensionFromPath(path);
   return allExtensions.includes(ext);
@@ -122,103 +69,28 @@ function getMediaTypeFromPath(path) {
   return videoExtensions.includes(ext) ? "video" : "image";
 }
 
-function sortMediaByName(items) {
-  return [...items].sort((a, b) =>
-    a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: "base" })
-  );
-}
+function discoverFolderMedia(folderIndex) {
+  const mediaRaw = memoryTextList[folderIndex - 1]?.dataset?.media || "";
+  const mediaFiles = mediaRaw
+    .split("|")
+    .map((item) => item.trim())
+    .filter(Boolean);
 
-async function fetchDirectoryMedia(basePath) {
-  try {
-    const res = await fetch(`${basePath}/`, { cache: "no-store" });
-    if (!res.ok) return [];
+  if (!mediaFiles.length) return [];
 
-    const html = await res.text();
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(html, "text/html");
-    const links = Array.from(doc.querySelectorAll("a[href]"));
+  return mediaFiles
+    .map((fileName) => {
+      const cleanFileName = fileName.replace(/^\/+/, "");
+      const ext = getExtensionFromPath(cleanFileName);
+      if (!isSupportedMediaFile(cleanFileName)) return null;
 
-    const mediaItems = links
-      .map((anchor) => anchor.getAttribute("href") || "")
-      .map((href) => decodeURIComponent(href.trim()))
-      .filter((href) => href && href !== "../" && !href.endsWith("/"))
-      .map((href) => {
-        const fileName = href.split("/").pop() || href;
-        if (!isSupportedMediaFile(fileName)) return null;
-        return {
-          name: fileName,
-          url: `${basePath}/${fileName}`,
-          type: getMediaTypeFromPath(fileName),
-        };
-      })
-      .filter(Boolean);
+      const url = /^https?:\/\//i.test(cleanFileName)
+        ? cleanFileName
+        : `${MEDIA_BASE_PATH}/${folderIndex}/${cleanFileName}`;
 
-    return sortMediaByName(mediaItems);
-  } catch (error) {
-    return [];
-  }
-}
-
-async function probeUrlExists(url) {
-  try {
-    const response = await fetch(url, { method: "HEAD", cache: "no-store" });
-    if (response.ok) return true;
-
-    if (response.status === 405) {
-      const fallback = await fetch(url, { method: "GET", cache: "no-store" });
-      return fallback.ok;
-    }
-
-    return false;
-  } catch (error) {
-    return false;
-  }
-}
-
-/* ── Discover all media in a folder (static/images_videos/{n}/) ── */
-async function discoverFolderMedia(folderIndex) {
-  const basePaths = [
-    `static/images_video/${folderIndex}`,
-    `static/images_videos/${folderIndex}`,
-  ];
-  const found = [];
-
-  for (const basePath of basePaths) {
-    const listed = await fetchDirectoryMedia(basePath);
-    if (listed.length) {
-      return listed.map((item) => ({ url: item.url, type: item.type }));
-    }
-  }
-
-  let fileNum = 1;
-  let consecutiveMisses = 0;
-  let activeBasePath = null;
-
-  while (consecutiveMisses < 1) {
-    const scanPaths = activeBasePath ? [activeBasePath] : basePaths;
-    const probes = scanPaths.flatMap((basePath) =>
-      allExtensions.map((ext) => {
-        const url = `${basePath}/${fileNum}.${ext}`;
-        const type = videoExtensions.includes(ext) ? "video" : "image";
-        return probeUrlExists(url).then((ok) => (ok ? { url, ext, type, basePath } : null));
-      })
-    );
-
-    const results = await Promise.all(probes);
-    const hit = results.find((r) => r !== null);
-
-    if (hit) {
-      found.push({ url: hit.url, type: hit.type });
-      activeBasePath = hit.basePath;
-      consecutiveMisses = 0;
-    } else {
-      consecutiveMisses += 1;
-    }
-
-    fileNum += 1;
-  }
-
-  return found;
+      return { url, type: videoExtensions.includes(ext) ? "video" : "image" };
+    })
+    .filter(Boolean);
 }
 
 /* ── Build stacked collage (paper pile style) ── */
@@ -300,6 +172,7 @@ function openLightbox(mediaList, startIndex) {
   lightboxMediaList = mediaList;
   lightboxIndex = startIndex;
   const lb = getLightboxElements();
+  if (!lb.overlay || !lb.content || !lb.counter || !lb.prevBtn || !lb.nextBtn) return;
   lb.overlay.classList.add("active");
   document.body.style.overflow = "hidden";
   renderLightboxSlide();
@@ -307,6 +180,7 @@ function openLightbox(mediaList, startIndex) {
 
 function closeLightbox() {
   const lb = getLightboxElements();
+  if (!lb.overlay || !lb.content) return;
   lb.overlay.classList.remove("active");
   document.body.style.overflow = "";
   const vid = lb.content.querySelector("video");
@@ -316,6 +190,7 @@ function closeLightbox() {
 
 function renderLightboxSlide() {
   const lb = getLightboxElements();
+  if (!lb.content || !lb.counter || !lb.prevBtn || !lb.nextBtn) return;
   const vid = lb.content.querySelector("video");
   if (vid) vid.pause();
   lb.content.innerHTML = "";
@@ -356,12 +231,15 @@ function lightboxNext() {
 
 function initLightbox() {
   const lb = getLightboxElements();
-  lb.overlay.addEventListener("click", (e) => {
+  const closeButton = document.getElementById("lightbox-close");
+  if (!lb.overlay || !lb.prevBtn || !lb.nextBtn || !closeButton) return;
+
+  on(lb.overlay, "click", (e) => {
     if (e.target === lb.overlay || e.target.id === "lightbox-close") closeLightbox();
   });
-  document.getElementById("lightbox-close").addEventListener("click", closeLightbox);
-  lb.prevBtn.addEventListener("click", (e) => { e.stopPropagation(); lightboxPrev(); });
-  lb.nextBtn.addEventListener("click", (e) => { e.stopPropagation(); lightboxNext(); });
+  on(closeButton, "click", closeLightbox);
+  on(lb.prevBtn, "click", (e) => { e.stopPropagation(); lightboxPrev(); });
+  on(lb.nextBtn, "click", (e) => { e.stopPropagation(); lightboxNext(); });
 
   document.addEventListener("keydown", (e) => {
     if (!lb.overlay.classList.contains("active")) return;
@@ -418,11 +296,10 @@ async function buildMemoryTimeline(total = 20) {
   }
 
   for (const { galleryWrap, index } of rows) {
-    discoverFolderMedia(index).then((mediaList) => {
-      galleryWrap.innerHTML = "";
-      const collage = buildCollage(mediaList, index);
-      galleryWrap.appendChild(collage);
-    });
+    const mediaList = discoverFolderMedia(index);
+    galleryWrap.innerHTML = "";
+    const collage = buildCollage(mediaList, index);
+    galleryWrap.appendChild(collage);
   }
 }
 
@@ -534,6 +411,7 @@ async function runLetterTypingFast() {
 }
 
 function createFloatingHearts(layer, count, minDuration, maxDuration, front = false) {
+  if (!layer) return;
   for (let i = 0; i < count; i += 1) {
     const heart = document.createElement("span");
     heart.className = "floating-heart";
@@ -558,6 +436,7 @@ function createFloatingHearts(layer, count, minDuration, maxDuration, front = fa
 }
 
 function createSparkles(count) {
+  if (!sparklesLayer) return;
   for (let i = 0; i < count; i += 1) {
     const sparkle = document.createElement("span");
     sparkle.className = "floating-sparkle";
@@ -576,6 +455,7 @@ function createSparkles(count) {
 }
 
 function createMeteors(count) {
+  if (!meteorsLayer) return;
   for (let i = 0; i < count; i += 1) {
     const meteor = document.createElement("span");
     meteor.className = "meteor";
@@ -698,6 +578,7 @@ function initCursorGlow() {
 
 function initPointerTrail() {
   if (shouldReduceEffects()) return;
+  if (!trailLayer) return;
   let lastTime = 0;
 
   window.addEventListener("pointermove", (event) => {
@@ -738,6 +619,7 @@ function initMemoryTilt() {
 }
 
 function burstHearts(x, y, amount = 18, spread = 140) {
+  if (!clickBurstLayer) return;
   for (let i = 0; i < amount; i += 1) {
     const piece = document.createElement("span");
     piece.className = "click-heart";
@@ -765,6 +647,7 @@ function randomRange(min, max) {
 }
 
 function fireworkExplosion(cx, cy, count = 42) {
+  if (!fireworksLayer) return;
   const colors = ["#ffd4ea", "#ff7cb9", "#fff2f8", "#ffc2df", "#ff96c6"];
 
   for (let i = 0; i < count; i += 1) {
@@ -823,6 +706,7 @@ function handleChecklist() {
 }
 
 function updateMusicButton() {
+  if (!audio || !musicToggle || !musicText) return;
   const isPaused = audio.paused;
   musicToggle.classList.toggle("paused", isPaused);
   if (!playlist.length) {
@@ -835,6 +719,7 @@ function updateMusicButton() {
 }
 
 function setTrackByIndex(index) {
+  if (!audio) return;
   if (!playlist.length) return;
   playlistIndex = (index + playlist.length) % playlist.length;
   audio.src = playlist[playlistIndex];
@@ -852,6 +737,7 @@ function nextTrack(shouldPlay = true) {
 }
 
 async function tryPlayAudio() {
+  if (!audio) return;
   if (!playlist.length) return;
 
   if (!audioReady) {
@@ -896,6 +782,7 @@ async function tryPlayAudio() {
 }
 
 function startAutoplayRetry() {
+  if (!audio) return;
   if (autoplayRetryTimer) return;
   autoplayRetryCount = 0;
 
@@ -922,7 +809,8 @@ function startAutoplayRetry() {
 }
 
 async function initMusic() {
-  playlist = await discoverMusicTracks();
+  if (!audio || !musicToggle || !musicText) return;
+  playlist = [...fallbackTracks];
   playlistIndex = 0;
   userPausedMusic = false;
 
@@ -933,7 +821,7 @@ async function initMusic() {
   audio.autoplay = true;
   audio.muted = true;
 
-  musicToggle.addEventListener("click", async () => {
+  on(musicToggle, "click", async () => {
     if (audio.paused) {
       userPausedMusic = false;
       audio.muted = false;
@@ -951,12 +839,12 @@ async function initMusic() {
     }
   });
 
-  audio.addEventListener("ended", () => {
+  on(audio, "ended", () => {
     if (userPausedMusic) return;
     nextTrack(true);
   });
 
-  audio.addEventListener("pause", () => {
+  on(audio, "pause", () => {
     if (userPausedMusic) return;
     setTimeout(() => {
       if (!userPausedMusic && audio.paused) {
@@ -966,7 +854,7 @@ async function initMusic() {
     }, 120);
   });
 
-  document.addEventListener("visibilitychange", () => {
+  on(document, "visibilitychange", () => {
     if (document.hidden || userPausedMusic) return;
     if (audio.paused) {
       tryPlayAudio();
@@ -974,7 +862,7 @@ async function initMusic() {
     }
   });
 
-  window.addEventListener("focus", () => {
+  on(window, "focus", () => {
     if (userPausedMusic) return;
     if (audio.paused) {
       tryPlayAudio();
@@ -993,8 +881,8 @@ async function initMusic() {
     window.removeEventListener("keydown", warmup);
   };
 
-  window.addEventListener("pointerdown", warmup, { once: true });
-  window.addEventListener("keydown", warmup, { once: true });
+  on(window, "pointerdown", warmup, { once: true });
+  on(window, "keydown", warmup, { once: true });
 
   tryPlayAudio();
   startAutoplayRetry();
@@ -1002,7 +890,8 @@ async function initMusic() {
 }
 
 function handleLoveButton() {
-  loveButton.addEventListener("click", () => {
+  if (!loveButton || !page || !finalMessage) return;
+  on(loveButton, "click", () => {
     const rect = loveButton.getBoundingClientRect();
     const centerX = rect.left + rect.width / 2;
     const centerY = rect.top + rect.height / 2;
