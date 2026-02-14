@@ -36,10 +36,7 @@ const fallbackTracks = (audio?.dataset?.tracks || "")
   .filter(Boolean);
 let playlist = [...fallbackTracks];
 
-const mediaExtensions = ["jpg", "jpeg", "png", "webp", "gif", "jfif", "bmp", "avif"];
 const videoExtensions = ["mp4", "webm", "mov"];
-const allExtensions = [...mediaExtensions, ...videoExtensions];
-const MEDIA_BASE_PATH = "static/images_video";
 
 function on(target, eventName, handler, options) {
   if (!target) return;
@@ -59,38 +56,46 @@ function getExtensionFromPath(path) {
   return clean.slice(dotIndex + 1).toLowerCase();
 }
 
-function isSupportedMediaFile(path) {
-  const ext = getExtensionFromPath(path);
-  return allExtensions.includes(ext);
+async function discoverMusicTracks() {
+  try {
+    const response = await fetch("/api/music", { cache: "no-store" });
+    if (!response.ok) return [...fallbackTracks];
+    const payload = await response.json();
+    if (!Array.isArray(payload)) return [...fallbackTracks];
+
+    const tracks = payload
+      .map((item) => (typeof item?.url === "string" ? item.url.trim() : ""))
+      .filter(Boolean);
+
+    if (tracks.length) return tracks;
+    return [...fallbackTracks];
+  } catch (error) {
+    return [...fallbackTracks];
+  }
 }
 
-function getMediaTypeFromPath(path) {
-  const ext = getExtensionFromPath(path);
-  return videoExtensions.includes(ext) ? "video" : "image";
-}
+async function discoverFolderMedia(folderIndex) {
+  try {
+    const response = await fetch(`/api/media/${folderIndex}`, { cache: "no-store" });
+    if (!response.ok) return [];
+    const payload = await response.json();
+    if (!Array.isArray(payload)) return [];
 
-function discoverFolderMedia(folderIndex) {
-  const mediaRaw = memoryTextList[folderIndex - 1]?.dataset?.media || "";
-  const mediaFiles = mediaRaw
-    .split("|")
-    .map((item) => item.trim())
-    .filter(Boolean);
-
-  if (!mediaFiles.length) return [];
-
-  return mediaFiles
-    .map((fileName) => {
-      const cleanFileName = fileName.replace(/^\/+/, "");
-      const ext = getExtensionFromPath(cleanFileName);
-      if (!isSupportedMediaFile(cleanFileName)) return null;
-
-      const url = /^https?:\/\//i.test(cleanFileName)
-        ? cleanFileName
-        : `${MEDIA_BASE_PATH}/${folderIndex}/${cleanFileName}`;
-
-      return { url, type: videoExtensions.includes(ext) ? "video" : "image" };
-    })
-    .filter(Boolean);
+    return payload
+      .map((item) => {
+        const url = typeof item?.url === "string" ? item.url.trim() : "";
+        let type = typeof item?.type === "string" ? item.type.trim().toLowerCase() : "";
+        if (!url) return null;
+        if (type !== "image" && type !== "video") {
+          const ext = getExtensionFromPath(url);
+          type = videoExtensions.includes(ext) ? "video" : "image";
+        }
+        return { url, type };
+      })
+      .filter(Boolean);
+  } catch (error) {
+    return [];
+  }
 }
 
 /* ── Build stacked collage (paper pile style) ── */
@@ -296,7 +301,7 @@ async function buildMemoryTimeline(total = 20) {
   }
 
   for (const { galleryWrap, index } of rows) {
-    const mediaList = discoverFolderMedia(index);
+    const mediaList = await discoverFolderMedia(index);
     galleryWrap.innerHTML = "";
     const collage = buildCollage(mediaList, index);
     galleryWrap.appendChild(collage);
@@ -810,7 +815,7 @@ function startAutoplayRetry() {
 
 async function initMusic() {
   if (!audio || !musicToggle || !musicText) return;
-  playlist = [...fallbackTracks];
+  playlist = await discoverMusicTracks();
   playlistIndex = 0;
   userPausedMusic = false;
 
